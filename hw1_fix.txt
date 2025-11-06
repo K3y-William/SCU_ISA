@@ -29,8 +29,8 @@ INC x4,  x0,  1
 
 // --- Save PC-relative jump targets ---
 SVPC x20, 5              // LOOP
-SVPC x21, 19             // S1
-SVPC x22, 25             // S2
+SVPC x21, 15             // S1
+SVPC x22, 26             // S2
 SVPC x23, 31             // S3
 SVPC x24, 34             // DONE_INNER
 
