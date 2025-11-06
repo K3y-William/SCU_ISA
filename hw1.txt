@@ -1,64 +1,83 @@
-// input a x1, output b x2, N x3, 0 x0
+--------------------------------------------------------------------------
+Assumptions:
+x0  = 0                     // zero register (constant 0)
+x1  = &a[0]                 // base address of input array a
+x2  = &b[0]                 // base address of output array b
+x3  = n                     // number of elements
+------------------------------------------------------------------------
+x4  = i                     // loop index
+x5  = 1                     // constant 1
+x6  = temp / a[i-1]
+x7  = temp / a[i]
+x8  = temp / comparison result
+x9  = temp / a[i+1]
+x10 = temp for swapping
+x11 = temp index (i-1 or i+1)
+x20–x24 = PC holders for control flow (LOOP, S1, S2, S3, DONE_INNER)
+-------------------------------------------------------------------------
 
-    INC x5,  x0,  1          // x5 = 1
+// Initialize constant 1
+INC x5,  x0,  1          // x5 = 1
 
-    // b[0] = a[0]
-    LD  x6,  x1,  0          // x6 = a[0]
-    ST  x6,  x2,  0          // b[0] = a[0]
+// --- b[0] = a[0] ---
+LD  x6,  x1,  0          // x6 = a[0]
+ST  x6,  x2,  0          // b[0] = a[0]
 
-    // i = 1
-    INC x4,  x0,  1
+// --- initialize i = 1 ---
+INC x4,  x0,  1
 
-LOOP:
-    // stop when i == n-1
-    SUB x8,  x4,  x3         // x8 = i - n
-    INC x8,  x8,  1          // x8 = i - (n-1)
-    BRZ DONE_INNER           // if i == n-1 -> exit loop
+// --- Save PC-relative jump targets ---
+SVPC x20, 5              // LOOP
+SVPC x21, 19             // S1
+SVPC x22, 25             // S2
+SVPC x23, 31             // S3
+SVPC x24, 34             // DONE_INNER
 
-    // window: a[i-1], a[i], a[i+1]
-    SUB x11, x4,  x5         // x11 = i-1
-    LD  x6,  x1,  x11        // x6 = a[i-1]
-    LD  x7,  x1,  x4         // x7 = a[i]
-    ADD x11, x4,  x5         // x11 = i+1
-    LD  x9,  x1,  x11        // x9 = a[i+1]
+// --- LOOP start  ---
+SUB x8,  x4,  x3         // x8 = i - n
+INC x8,  x8,  1          // x8 = i - (n-1)
+BRZ x24                  // if i == n-1 → jump to DONE_INNER
 
-    // ---- median(x6,x7,x9) -> x7 ----
-    // if x6 > x7: swap(x6,x7)
-    SUB x8,  x6,  x7
-    BRN S1                    // x6<x7 keep; if = also keep
-    BRZ S1
-    // swap x6,x7 
-    ADD x10, x6,  x0         
-    ADD x6,  x7,  x0         
-    ADD x7,  x10, x0         
-S1:
-    // if x7 > x9: swap(x7,x9)
-    SUB x8,  x7,  x9
-    BRN S2
-    BRZ S2
-    // swap x7,x9
-    ADD x10, x7,  x0
-    ADD x7,  x9,  x0
-    ADD x9,  x10, x0
-S2:
-    // if x6 > x7: swap(x6,x7)
-    SUB x8,  x6,  x7
-    BRN S3
-    BRZ S3
-    // swap x6,x7
-    ADD x10, x6,  x0
-    ADD x6,  x7,  x0
-    ADD x7,  x10, x0
-S3:
-    // x7 is median(a[i-1], a[i], a[i+1])
+// Load window: a[i-1], a[i], a[i+1]
+SUB x11, x4,  x5         // x11 = i-1
+LD  x6,  x1,  x11        // x6 = a[i-1]
+LD  x7,  x1,  x4         // x7 = a[i]
+ADD x11, x4,  x5         // x11 = i+1
+LD  x9,  x1,  x11        // x9 = a[i+1]
 
-    ST  x7,  x2,  x4         // b[i] = median
-    INC x4,  x4,  1          // i++
-    J   LOOP
+// ---- median(x6, x7, x9) → x7 ----
+// Step 1: if x6 > x7 → swap(x6, x7)
+SUB x8,  x6,  x7
+BRN x21
+BRZ x21
+ADD x10, x6,  x0
+ADD x6,  x7,  x0
+ADD x7,  x10, x0
 
-DONE_INNER:
-    // --- b[n-1] = a[n-1] ---
-    SUB x11, x3,  x5         // x11 = n-1
-    LD  x6,  x1,  x11        // x6 = a[n-1]
-    ST  x6,  x2,  x11        // b[n-1] = a[n-1]
-    NOP
+// S1: if x7 > x9 → swap(x7, x9)
+SUB x8,  x7,  x9
+BRN x22
+BRZ x22
+ADD x10, x7,  x0
+ADD x7,  x9,  x0
+ADD x9,  x10, x0
+
+// S2: if x6 > x7 → swap(x6, x7)
+SUB x8,  x6,  x7
+BRN x23
+BRZ x23
+ADD x10, x6,  x0
+ADD x6,  x7,  x0
+ADD x7,  x10, x0
+
+// S3: x7 now holds median(a[i-1], a[i], a[i+1])
+ST  x7,  x2,  x4         // b[i] = median
+INC x4,  x4,  1          // i++
+J   x20                  // repeat LOOP
+
+// DONE_INNER:
+SUB x11, x3,  x5         // x11 = n-1
+LD  x6,  x1,  x11        // x6 = a[n-1]
+ST  x6,  x2,  x11        // b[n-1] = a[n-1]
+NOP                      // program end
+
