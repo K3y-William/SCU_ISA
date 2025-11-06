@@ -1,3 +1,4 @@
+Name: Zhirong Wang, Bojun Zhang, Mingyu Wu
 --------------------------------------------------------------------------
 Assumptions:
 x0  = 0                     // zero register (constant 0)
